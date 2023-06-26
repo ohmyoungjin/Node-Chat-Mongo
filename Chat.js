@@ -33,8 +33,9 @@ function InsertMongo(doc) {
     let collectName = doc.RoomCode.toString();
     logger.info("doctype " + doc.type)
     if(doc.type == 'whiteBoard') {
-        logger.info("in!!")
         collectName = collectName + '_WhiteBoard';
+    } else if(doc.type == 'text') {
+        collectName = collectName + '_History';
     }        
     logger.info("collentName : " + collectName)
     mongoDB.collection(collectName).insertOne(doc, function(err, res) {
@@ -44,6 +45,13 @@ function InsertMongo(doc) {
             }           
             //mdb.close();
     });   
+}
+
+async function findAllMongo(doc) {
+    let collectName = doc.RoomCode.toString();
+    let findResult = await mongoDB.collection(collectName).find({"sender": "maeng"}).toArray();
+    console.log('Found documents =>', findResult);
+    
 }
 
 app.get('/', (req, res) => {
@@ -59,9 +67,17 @@ app.post('/insert', (req, res) => {
         type : req.body.type
     }
     logger.info("req=>" + JSON.stringify(req.body));
-    InsertMongo(doc);
-    logger.info("insert In!");
+    InsertMongo(doc);    
     res.send("insert!");
+})
+
+app.post('/findAll', (req, res) => {
+    let doc = {
+        RoomCode : req.body.RoomCode,        
+    }
+    logger.info("req=>" + JSON.stringify(req.body));
+    findAllMongo(doc);    
+    res.send("select!");
 })
 
 /**
