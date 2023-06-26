@@ -13,7 +13,7 @@ const connect = () => {
     logger.info("start!!");
   // 만일 배포용이 아니라면, 디버깅 on
 //   if (process.env.NODE_ENV !== 'production') {
-//     mongoose.set('debug', true); // 몽고 쿼리가 콘솔에서 뜨게 한다.
+     mongoose.set('debug', true); // 몽고 쿼리가 콘솔에서 뜨게 한다.
 //   }
 
 //   mongoose.connect(dbUrl, {
@@ -29,10 +29,10 @@ const connect = () => {
 //   });
     mongoose.connect("mongodb://maeng:1234@localhost:27017/test?authSource=admin")
       .then(() => {
-        console.log("Connected to MongoDB => test");
+        logger.info("Connected to MongoDB => test");
       })
       .catch((err) => {
-        console.log(err);
+        logger.error(err);
       });
 };
 

@@ -1,5 +1,7 @@
 const express = require('express');
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({extended: true}))
 const port = 3000;
 
 /**
@@ -18,49 +20,48 @@ app.all('/*', function(req, res, next) {
 });
 
 /**
- * mongoDB Setting
+ * 몽고 DB 관련 설정 
  */
-const mongoose = require('mongoose');
-let mongo = require('mongodb').MongoClient;
-const mongodbConfig ='mongodb://maeng:1234@localhost:27017/test?authSource=admin';
-const ChatMessage = require('./schema/ChatMessage.js');
-const mongoConnection = require('./schema/dbConnection');
+const { MongoClient } = require('mongodb');
+const url = 'mongodb://localhost:27017';
+const client = new MongoClient(url);
+const dbName = 'test';
+
 let mongoDB;
 
-// function ConnectMongo() {
-//     logger.info("MongoDB Connection start !", mongo);   
-//  mongoose.connect("mongodb://maeng:1234@localhost:27017/test?authSource=admin")
-//   .then(() => {
-//     console.log("Connected to MongoDB => test");
-//   })
-//   .catch((err) => {
-//     console.log(err);
-//   });
-// }
-
-// mongoose.connection.on('error', (error) => {
-//     logger.error('몽고디비 연결 에러', error);
-//   });
-  
-//   mongoose.connection.on('disconnected', () => {
-//     logger.error('몽고디비 연결이 끊겼습니다. 연결을 재시도 합니다');
-//     connect();
-//   });
-
-function InsertMongo() {
-    logger.info("Mongo DB :", mongoDB);
-    let databaseInfo = mongoDB.db('test');
-    doc = {"RoomCode":"111", "u_domain":"222", "PORT": "333"};
-    databaseInfo.collection("study").insertOne(doc, function(err, res) {
-            if (err) throw err;
-           logger.info("1 document inserted");
+function InsertMongo(doc) {    
+    let collectName = doc.RoomCode.toString();
+    logger.info("doctype " + doc.type)
+    if(doc.type == 'whiteBoard') {
+        logger.info("in!!")
+        collectName = collectName + '_WhiteBoard';
+    }        
+    logger.info("collentName : " + collectName)
+    mongoDB.collection(collectName).insertOne(doc, function(err, res) {
+            if (err) { throw err }
+            else {
+                logger.info("1 document inserted");
+            }           
             //mdb.close();
-    });
+    });   
 }
 
 app.get('/', (req, res) => {
-    res.send("hello!");
+    res.send("hello!");    
     logger.info("User In!");
+})
+
+app.post('/insert', (req, res) => {
+    let doc = {
+        RoomCode : req.body.RoomCode,
+        sender : req.body.sender,
+        text : req.body.text,
+        type : req.body.type
+    }
+    logger.info("req=>" + JSON.stringify(req.body));
+    InsertMongo(doc);
+    logger.info("insert In!");
+    res.send("insert!");
 })
 
 /**
@@ -68,7 +69,19 @@ app.get('/', (req, res) => {
  */
 app.listen(port, () => {
     logger.info("Server Start !");   
-    mongoConnection();
+    //ConnectMongo();
+    main();
+    //mongoConnection();
 })
 
+/**
+ * 서버 초기 세팅 
+ */
+async function main() {
+    // Use connect method to connect to the server
+    await client.connect();
+    console.log('Connected successfully to server');
+    mongoDB = client.db(dbName);      
+    return 'done';
+}
 

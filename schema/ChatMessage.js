@@ -10,7 +10,7 @@ const ChatMessage = new Schema({
     type: String,
     required: true
   },
-  test: {
+  text: {
     type: String,
     required: true
   }  
