@@ -16,7 +16,7 @@ const chatMessage_validation = {
 
         try { //검사 시작
             await chatMessageSchema.validateAsync(body);
-
+            
         } catch (e) {
             console.log("ChatMessage error", e);
             return res.status(400).json({code: 400, message: e.message});
