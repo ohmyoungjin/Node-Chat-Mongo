@@ -9,7 +9,7 @@ const port = 3000;
  */
 const morgan = require('morgan');
 const logger = require("./logconfig");
-
+const chatValidation = require('./validation/ChatMessage');
 /**
  * CORS 관련 설정
  */
@@ -30,8 +30,8 @@ const dbName = 'test';
 let mongoDB;
 
 function InsertMongo(doc) {    
-    let collectName = doc.RoomCode.toString();
-    logger.info("doctype " + doc.type)
+    console.log("InsertMongo doc =>", doc);
+    let collectName = doc.roomCode.toString();    
     if(doc.type == 'whiteBoard') {
         collectName = collectName + '_WhiteBoard';
     } else if(doc.type == 'text') {
@@ -41,7 +41,8 @@ function InsertMongo(doc) {
     mongoDB.collection(collectName).insertOne(doc, function(err, res) {
             if (err) { throw err }
             else {
-                logger.info("Insert Success");                
+                logger.info("Insert Success");    
+                res.send("OK");            
             }           
             //mdb.close();
     });   
@@ -60,7 +61,7 @@ async function findAllMongo(doc) {
  * 방에 대한 조건에 해당하는 값 찾기 
  */
 async function findConditionMongo(doc) {
-    let collectName = doc.RoomCode.toString();
+    let collectName = doc.roomCode.toString();
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;
     
@@ -77,7 +78,7 @@ async function findConditionMongo(doc) {
  */
 
 async function updateMongo(doc) {
-    let collectName = doc.RoomCode.toString();
+    let collectName = doc.roomCode.toString();
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;
     let updateKey = doc.updateKey.toString();
@@ -99,7 +100,7 @@ async function updateMongo(doc) {
  */
 
 async function deleteMongo(doc) {
-    let collectName = doc.RoomCode.toString();
+    let collectName = doc.roomCode.toString();
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;    
     
@@ -116,16 +117,16 @@ app.get('/', (req, res) => {
     logger.info("User In!");
 })
 
-app.post('/insert', (req, res) => {
+app.post('/insert', (req, res ) => {
+    chatValidation.chatMessage(req, res);
     let doc = {
-        RoomCode : req.body.RoomCode,
+        roomCode : req.body.roomCode,
         sender : req.body.sender,
         text : req.body.text,
         type : req.body.type
     }
     logger.info("req=>" + JSON.stringify(req.body));
-    InsertMongo(doc);    
-    res.send("insert!");
+    InsertMongo(doc);        
 })
 
 app.post('/findAll', (req, res) => {
@@ -139,7 +140,7 @@ app.post('/findAll', (req, res) => {
 
 app.post('/findCondition', (req, res) => {
     let doc = {
-        RoomCode : req.body.RoomCode,        
+        RoomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult
     }
@@ -150,7 +151,7 @@ app.post('/findCondition', (req, res) => {
 
 app.post('/update', (req, res) => {
     let doc = {
-        RoomCode : req.body.RoomCode,        
+        RoomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult,
         updateKey : req.body.updateKey,
@@ -163,7 +164,7 @@ app.post('/update', (req, res) => {
 
 app.post('/delete', (req, res) => {
     let doc = {
-        RoomCode : req.body.RoomCode,        
+        RoomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult,        
     }
