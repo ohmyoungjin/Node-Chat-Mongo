@@ -80,11 +80,11 @@ async function insertMongo(doc) {
 
         let collectName = stringConverter(doc.roomCode);
 
-        // if(doc.type == 'whiteBoard') {
-        //     collectName = collectName + '_WhiteBoard';
-        // } else if(doc.type == 'text') {
-        //     collectName = collectName + '_History';
-        // }                
+        if(doc.type == 'whiteBoard') {
+            collectName = collectName + '_WhiteBoard';
+        } else if(doc.type == 'text') {
+            collectName = collectName + '_History';
+        }                
 
         mongoDB.collection(collectName).insertOne(doc, function(err, res) {                           
         });   
@@ -115,7 +115,7 @@ async function findConditionMongo(doc) {
     let conditionKey = doc.conditionKey;        
     let conditionValue = doc.conditionValue;
     let findResult;    
-    
+
     // 동적 쿼리 생성
     let query = {};
     query[conditionKey] = conditionValue;        
@@ -202,7 +202,8 @@ app.post('/insert', async (req, res ) => {
         await insertMongo(doc, res);   
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
     } catch(e) {
-        return res.status(400).send(exceptionDto.errorCode.CODE_1, e)
+        logger.error(e);
+        return res.status(400).send(exceptionDto.errorCode.CODE_1)
     }                
 })
 
@@ -214,7 +215,7 @@ app.post('/findAll', async (req, res) => {
         let roomList  = await findAllMongo(doc);           
         return res.status(200).send(roomList);
      } catch (e) {
-        console.error(e);
+        logger.error(e);
         return res.status(400).send(exceptionDto.errorCode.CODE_2)
      }    
 })
@@ -230,7 +231,8 @@ app.post('/findCondition', async (req, res) => {
         let roomList = await findConditionMongo(doc); 
         console.log("roomList =>" , roomList);           
         return res.status(200).send(roomList);
-     } catch (e) {
+     } catch (e) {        
+        logger.error(e);
         return res.status(400).send(exceptionDto.errorCode.CODE_2)
      }       
 })
@@ -248,6 +250,7 @@ app.post('/update', async (req, res) => {
         await updateMongo(doc);    
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
+        logger.error(e);
         return res.status(400).send(exceptionDto.errorCode.CODE_3, e)
      }   
 })
@@ -263,7 +266,8 @@ app.post('/delete', async (req, res) => {
         await deleteMongo(doc);             
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
-        return res.status(400).send(exceptionDto.errorCode.CODE_4, e)
+        logger.error(e);
+        return res.status(400).send(exceptionDto.errorCode.CODE_4)
      }           
 })
 
@@ -279,7 +283,8 @@ app.post('/collection/delete', async (req, res) => {
        await deleteCollection(doc, res)        
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
     } catch (e) {
-        return res.status(400).send(exceptionDto.errorCode.CODE_4, e);        
+        logger.error(e);
+        return res.status(400).send(exceptionDto.errorCode.CODE_4);        
     }            
 })
 
