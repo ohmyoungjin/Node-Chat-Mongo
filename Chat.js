@@ -39,49 +39,100 @@ const dbName = 'test';
 
 let mongoDB;
 
-async function InsertMongo(doc) {    
-    console.log("InsertMongo doc =>", doc);
-    let collectName = doc.roomCode.toString();    
-    if(doc.type == 'whiteBoard') {
-        collectName = collectName + '_WhiteBoard';
-    } else if(doc.type == 'text') {
-        collectName = collectName + '_History';
-    }        
-    logger.info("collentName : " + collectName)
-    mongoDB.collection(collectName).insertOne(doc, function(err, res) {                           
-    });   
+/**
+ * 트랜잭션 관련 함수
+ */
+async function withTransaction(session, callback) {
+    try {
+        await session.startTransaction();
+        console.log("tarnsaction start !!");
+        
+        await callback(session);
+
+        await session.commitTransaction();        
+        console.log('Transaction committed successfully!');
+
+    } catch (error) {
+        await session.abortTransaction();
+        console.error('Transaction aborted:', error);
+    } finally {        
+        console.log("tarnsaction end !!");
+        session.endSession();
+    }
+}
+    
+/**
+ * MongoCollection name String Converter 
+ */
+function stringConverter(collectionName) {    
+    if(typeof(collectionName) != 'string') {        
+        return collectionName.toString();
+    } else {        
+        return collectionName;
+    }
+}
+
+async function insertMongo(doc) {        
+
+    const session = client.startSession();
+
+    await withTransaction(session, async (session) => { 
+
+        let collectName = stringConverter(doc.roomCode);
+
+        // if(doc.type == 'whiteBoard') {
+        //     collectName = collectName + '_WhiteBoard';
+        // } else if(doc.type == 'text') {
+        //     collectName = collectName + '_History';
+        // }                
+
+        mongoDB.collection(collectName).insertOne(doc, function(err, res) {                           
+        });   
+    })
+    
 }
 
 /**
  * 방에 대한 모든 정보 찾기 
  */
-async function findAllMongo(doc) {
-    let collectName = doc.RoomCode.toString();
-    let findResult = mongoDB.collection(collectName).find({}).toArray();
-    console.log('Found documents =>', findResult);    
+async function findAllMongo(doc) {    
+    let findResult;    
+    let collectName = stringConverter(doc.roomCode);
+    
+    const session = client.startSession();    
+
+    await withTransaction(session, async (session) => { 
+        findResult = await mongoDB.collection(collectName).find({}).toArray()        
+    })    
+    return findResult;
 }
 
 /**
  * 방에 대한 조건에 해당하는 값 찾기 
  */
-async function findConditionMongo(doc) {
-    let collectName = doc.roomCode.toString();
-    let conditionKey = doc.conditionKey.toString();        
+async function findConditionMongo(doc) {    
+    let collectName = stringConverter(doc.roomCode);        
+    let conditionKey = doc.conditionKey;        
     let conditionValue = doc.conditionValue;
+    let findResult;    
     
     // 동적 쿼리 생성
     let query = {};
-    query[conditionKey] = conditionValue;    
+    query[conditionKey] = conditionValue;        
 
-    let findResult = mongoDB.collection(collectName).find(query).toArray();
-    console.log('Found documents =>', findResult);    
+    const session = client.startSession();        
+
+    await withTransaction(session, async (session) => {         
+        findResult = await mongoDB.collection(collectName).find(query).toArray();        
+    })  
+    return findResult;      
 }
 
 /**
  * 방에 대한 조건 update
  */
 async function updateMongo(doc) {
-    let collectName = doc.roomCode.toString();
+    let collectName = stringConverter(doc.roomCode);
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;
     let updateKey = doc.updateKey.toString();
@@ -94,15 +145,18 @@ async function updateMongo(doc) {
     let updateQuery = {};
     updateQuery[updateKey] = updateValue;
 
-    let updateResult = mongoDB.collection(collectName).updateOne(query, {$set: updateQuery});
-    console.log('Update documents =>', updateResult);    
+    const session = client.startSession();    
+
+    await withTransaction(session, async (session) => { 
+        mongoDB.collection(collectName).updateOne(query, {$set: updateQuery});
+    })        
 }
 
 /**
  * 방에 대한 조건 delete
  */
 async function deleteMongo(doc) {
-    let collectName = doc.roomCode.toString();
+    let collectName = stringConverter(doc.roomCode);
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;    
     
@@ -110,8 +164,11 @@ async function deleteMongo(doc) {
     let deleteQuery = {};
     deleteQuery[conditionKey] = conditionValue;    
     
-    let deleteResult = mongoDB.collection(collectName).deleteMany(deleteQuery);
-    console.log('delete documents =>', deleteResult);    
+    const session = client.startSession();    
+    console.log("deleteQuery : ", deleteQuery);
+    await withTransaction(session, async (session) => { 
+        mongoDB.collection(collectName).deleteMany(deleteQuery);
+    })        
 }
 
 async function deleteCollection(doc) { 
@@ -119,9 +176,7 @@ async function deleteCollection(doc) {
      * 추후 정책에 따른 삭제 로직 추가 
      */
     let collectName = doc.roomCode.toString();
-    mongoDB.dropCollection(collectName);     
-    console.log("finish!222");      
-    
+    mongoDB.dropCollection(collectName);             
 }
 
 
@@ -130,7 +185,7 @@ app.get('/', (req, res) => {
     logger.info("User In!");
 })
 
-app.post('/health', req, res => {
+app.post('/health', (req, res) => {
     return res.status(200).send(exceptionDto.errorCode.CODE_0);
 }) 
 
@@ -144,25 +199,22 @@ app.post('/insert', async (req, res ) => {
             type : req.body.type
         }
             
-        await InsertMongo(doc, res);   
+        await insertMongo(doc, res);   
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
     } catch(e) {
         return res.status(400).send(exceptionDto.errorCode.CODE_1, e)
-    }
-    
-        
-    res.send("Ok");
+    }                
 })
 
 app.post('/findAll', async (req, res) => {
     let doc = {
-        roomCode : req.body.RoomCode,        
-    }
-        
-    try {
-        await findAllMongo(doc);   
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        roomCode : req.body.roomCode,        
+    }        
+    try {        
+        let roomList  = await findAllMongo(doc);           
+        return res.status(200).send(roomList);
      } catch (e) {
+        console.error(e);
         return res.status(400).send(exceptionDto.errorCode.CODE_2)
      }    
 })
@@ -170,13 +222,14 @@ app.post('/findAll', async (req, res) => {
 app.post('/findCondition', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
-        conditionKey : req.body.condition,
-        conditionValue : req.body.conditionResult
+        conditionKey : req.body.conditionKey,
+        conditionValue : req.body.conditionValue
     }    
 
     try {
-        await findConditionMongo(doc);    
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        let roomList = await findConditionMongo(doc); 
+        console.log("roomList =>" , roomList);           
+        return res.status(200).send(roomList);
      } catch (e) {
         return res.status(400).send(exceptionDto.errorCode.CODE_2)
      }       
@@ -185,8 +238,8 @@ app.post('/findCondition', async (req, res) => {
 app.post('/update', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
-        conditionKey : req.body.condition,
-        conditionValue : req.body.conditionResult,
+        conditionKey : req.body.conditionKey,
+        conditionValue : req.body.conditionValue,
         updateKey : req.body.updateKey,
         updateValue : req.body.updateValue
     }            
@@ -195,22 +248,22 @@ app.post('/update', async (req, res) => {
         await updateMongo(doc);    
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
-        return res.status(400).send(exceptionDto.errorCode.CODE_3)
+        return res.status(400).send(exceptionDto.errorCode.CODE_3, e)
      }   
 })
 
 app.post('/delete', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
-        conditionKey : req.body.condition,
-        conditionValue : req.body.conditionResult,        
+        conditionKey : req.body.conditionKey,
+        conditionValue : req.body.conditionValue,        
     }    
 
     try {
         await deleteMongo(doc);             
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
-        return res.status(400).send(exceptionDto.errorCode.CODE_4)
+        return res.status(400).send(exceptionDto.errorCode.CODE_4, e)
      }           
 })
 
@@ -221,7 +274,7 @@ app.post('/collection/delete', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode
     }    
-    
+
     try {
        await deleteCollection(doc, res)        
         return res.status(200).send(exceptionDto.errorCode.CODE_0);
@@ -229,6 +282,7 @@ app.post('/collection/delete', async (req, res) => {
         return res.status(400).send(exceptionDto.errorCode.CODE_4, e);        
     }            
 })
+
 
 /**
  * Server start
