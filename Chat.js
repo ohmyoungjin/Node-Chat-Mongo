@@ -1,5 +1,9 @@
 const express = require('express');
 const app = express();
+
+/**
+ * json, encode 설정
+ */
 app.use(express.json());
 app.use(express.urlencoded({extended: true}))
 const port = 3000;
@@ -9,6 +13,9 @@ const port = 3000;
  */
 const morgan = require('morgan');
 const logger = require("./logconfig");
+/**
+ * 검증 관련
+ */
 const chatValidation = require('./validation/ChatMessage');
 /**
  * CORS 관련 설정
@@ -18,7 +25,10 @@ app.all('/*', function(req, res, next) {
 	res.header("Access-Control-Allow-Headers", "X-Requested-With");
 	next();
 });
-
+/**
+ * exception 관련
+ */
+const exceptionDto = require('./excepction/exceptionDto');
 /**
  * 몽고 DB 관련 설정 
  */
@@ -29,7 +39,7 @@ const dbName = 'test';
 
 let mongoDB;
 
-function InsertMongo(doc) {    
+async function InsertMongo(doc) {    
     console.log("InsertMongo doc =>", doc);
     let collectName = doc.roomCode.toString();    
     if(doc.type == 'whiteBoard') {
@@ -38,13 +48,7 @@ function InsertMongo(doc) {
         collectName = collectName + '_History';
     }        
     logger.info("collentName : " + collectName)
-    mongoDB.collection(collectName).insertOne(doc, function(err, res) {
-            if (err) { throw err }
-            else {
-                logger.info("Insert Success");    
-                res.send("OK");            
-            }           
-            //mdb.close();
+    mongoDB.collection(collectName).insertOne(doc, function(err, res) {                           
     });   
 }
 
@@ -53,7 +57,7 @@ function InsertMongo(doc) {
  */
 async function findAllMongo(doc) {
     let collectName = doc.RoomCode.toString();
-    let findResult = await mongoDB.collection(collectName).find({}).toArray();
+    let findResult = mongoDB.collection(collectName).find({}).toArray();
     console.log('Found documents =>', findResult);    
 }
 
@@ -69,7 +73,7 @@ async function findConditionMongo(doc) {
     let query = {};
     query[conditionKey] = conditionValue;    
 
-    let findResult = await mongoDB.collection(collectName).find(query).toArray();
+    let findResult = mongoDB.collection(collectName).find(query).toArray();
     console.log('Found documents =>', findResult);    
 }
 
@@ -90,7 +94,7 @@ async function updateMongo(doc) {
     let updateQuery = {};
     updateQuery[updateKey] = updateValue;
 
-    let updateResult = await mongoDB.collection(collectName).updateOne(query, {$set: updateQuery});
+    let updateResult = mongoDB.collection(collectName).updateOne(query, {$set: updateQuery});
     console.log('Update documents =>', updateResult);    
 }
 
@@ -106,7 +110,7 @@ async function deleteMongo(doc) {
     let deleteQuery = {};
     deleteQuery[conditionKey] = conditionValue;    
     
-    let deleteResult = await mongoDB.collection(collectName).deleteMany(deleteQuery);
+    let deleteResult = mongoDB.collection(collectName).deleteMany(deleteQuery);
     console.log('delete documents =>', deleteResult);    
 }
 
@@ -115,8 +119,8 @@ async function deleteCollection(doc) {
      * 추후 정책에 따른 삭제 로직 추가 
      */
     let collectName = doc.roomCode.toString();
-    await mongoDB.dropCollection(collectName);     
-    console.log("finish!");      
+    mongoDB.dropCollection(collectName);     
+    console.log("finish!222");      
     
 }
 
@@ -126,61 +130,88 @@ app.get('/', (req, res) => {
     logger.info("User In!");
 })
 
-app.post('/insert', (req, res ) => {
-    chatValidation.chatMessage(req, res);
-    let doc = {
-        roomCode : req.body.roomCode,
-        sender : req.body.sender,
-        text : req.body.text,
-        type : req.body.type
+app.post('/health', req, res => {
+    return res.status(200).send(exceptionDto.errorCode.CODE_0);
+}) 
+
+app.post('/insert', async (req, res ) => {
+    try {
+        await chatValidation.chatMessage(req, res);
+        let doc = {
+            roomCode : req.body.roomCode,
+            sender : req.body.sender,
+            text : req.body.text,
+            type : req.body.type
+        }
+            
+        await InsertMongo(doc, res);   
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+    } catch(e) {
+        return res.status(400).send(exceptionDto.errorCode.CODE_1, e)
     }
-    logger.info("req=>" + JSON.stringify(req.body));
-    InsertMongo(doc, res);        
+    
+        
     res.send("Ok");
 })
 
-app.post('/findAll', (req, res) => {
+app.post('/findAll', async (req, res) => {
     let doc = {
         roomCode : req.body.RoomCode,        
     }
-    logger.info("req=>" + JSON.stringify(req.body));
-    findAllMongo(doc);    
-    res.send("select!");
+        
+    try {
+        await findAllMongo(doc);   
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+     } catch (e) {
+        return res.status(400).send(exceptionDto.errorCode.CODE_2)
+     }    
 })
 
-app.post('/findCondition', (req, res) => {
+app.post('/findCondition', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult
-    }
-    logger.info("req=>" + JSON.stringify(req.body));
-    findConditionMongo(doc);    
-    res.send("select!");
+    }    
+
+    try {
+        await findConditionMongo(doc);    
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+     } catch (e) {
+        return res.status(400).send(exceptionDto.errorCode.CODE_2)
+     }       
 })
 
-app.post('/update', (req, res) => {
+app.post('/update', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult,
         updateKey : req.body.updateKey,
         updateValue : req.body.updateValue
-    }
-    logger.info("req=>" + JSON.stringify(req.body));
-    updateMongo(doc);    
-    res.send("update!");
+    }            
+
+    try {
+        await updateMongo(doc);    
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+     } catch (e) {
+        return res.status(400).send(exceptionDto.errorCode.CODE_3)
+     }   
 })
 
-app.post('/delete', (req, res) => {
+app.post('/delete', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode,        
         conditionKey : req.body.condition,
         conditionValue : req.body.conditionResult,        
-    }
-    logger.info("req=>" + JSON.stringify(req.body));
-    deleteMongo(doc);    
-    res.send("delete!");
+    }    
+
+    try {
+        await deleteMongo(doc);             
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+     } catch (e) {
+        return res.status(400).send(exceptionDto.errorCode.CODE_4)
+     }           
 })
 
 /**
@@ -189,14 +220,13 @@ app.post('/delete', (req, res) => {
 app.post('/collection/delete', async (req, res) => {
     let doc = {
         roomCode : req.body.roomCode
-    }
-    logger.info("collection Delete : " + JSON.stringify(req.body));
+    }    
+    
     try {
-       await deleteCollection(doc, res)
-        logger.info("finish!");
-        res.status(400).json({code: 400, message: "collection delete success!"});
+       await deleteCollection(doc, res)        
+        return res.status(200).send(exceptionDto.errorCode.CODE_0);
     } catch (e) {
-        res.status(400).json({code: 400, message: e.message})
+        return res.status(400).send(exceptionDto.errorCode.CODE_4, e);        
     }            
 })
 
