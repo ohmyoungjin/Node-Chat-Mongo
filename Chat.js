@@ -11,7 +11,6 @@ const port = 3000;
 /**
  * log 관련
  */
-const morgan = require('morgan');
 const logger = require("./logconfig");
 /**
  * 검증 관련
@@ -78,11 +77,11 @@ async function insertMongo(doc) {
 
     await withTransaction(session, async (session) => { 
 
-        let collectName = stringConverter(doc.roomCode);
+        let collectName = stringConverter(doc.roomId);
 
         if(doc.type == 'whiteBoard') {
             collectName = collectName + '_WhiteBoard';
-        } else if(doc.type == 'text') {
+        } else if(doc.type == 'TALK') {
             collectName = collectName + '_History';
         }                
 
@@ -97,7 +96,7 @@ async function insertMongo(doc) {
  */
 async function findAllMongo(doc) {    
     let findResult;    
-    let collectName = stringConverter(doc.roomCode);
+    let collectName = stringConverter(doc.roomId);
     
     const session = client.startSession();    
 
@@ -111,7 +110,7 @@ async function findAllMongo(doc) {
  * 방에 대한 조건에 해당하는 값 찾기 
  */
 async function findConditionMongo(doc) {    
-    let collectName = stringConverter(doc.roomCode);        
+    let collectName = stringConverter(doc.roomId);        
     let conditionKey = doc.conditionKey;        
     let conditionValue = doc.conditionValue;
     let findResult;    
@@ -132,7 +131,7 @@ async function findConditionMongo(doc) {
  * 방에 대한 조건 update
  */
 async function updateMongo(doc) {
-    let collectName = stringConverter(doc.roomCode);
+    let collectName = stringConverter(doc.roomId);
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;
     let updateKey = doc.updateKey.toString();
@@ -156,7 +155,7 @@ async function updateMongo(doc) {
  * 방에 대한 조건 delete
  */
 async function deleteMongo(doc) {
-    let collectName = stringConverter(doc.roomCode);
+    let collectName = stringConverter(doc.roomId);
     let conditionKey = doc.conditionKey.toString();        
     let conditionValue = doc.conditionValue;    
     
@@ -175,7 +174,7 @@ async function deleteCollection(doc) {
     /**
      * 추후 정책에 따른 삭제 로직 추가 
      */
-    let collectName = doc.roomCode.toString();
+    let collectName = stringConverter(doc.roomId);
     mongoDB.dropCollection(collectName);             
 }
 
@@ -190,26 +189,28 @@ app.post('/health', (req, res) => {
 }) 
 
 app.post('/insert', async (req, res ) => {
+    console.log('insert start : ', req.body);
     try {
         await chatValidation.chatMessage(req, res);
         let doc = {
-            roomCode : req.body.roomCode,
+            roomId : req.body.roomId,
             sender : req.body.sender,
             text : req.body.text,
+            time : req.body.time,
             type : req.body.type
         }
             
         await insertMongo(doc, res);   
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        res.json(req.body);
     } catch(e) {
-        logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_1)
+        console.error(e);
+        res.json({rtnMessage: "success", rtnCode: "000000", rtnDtlMessage: "에러"});
     }                
 })
 
 app.post('/findAll', async (req, res) => {
     let doc = {
-        roomCode : req.body.roomCode,        
+        roomId : req.body.roomId,        
     }        
     try {        
         let roomList  = await findAllMongo(doc);           
@@ -222,7 +223,7 @@ app.post('/findAll', async (req, res) => {
 
 app.post('/findCondition', async (req, res) => {
     let doc = {
-        roomCode : req.body.roomCode,        
+        roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
         conditionValue : req.body.conditionValue
     }    
@@ -239,7 +240,7 @@ app.post('/findCondition', async (req, res) => {
 
 app.post('/update', async (req, res) => {
     let doc = {
-        roomCode : req.body.roomCode,        
+        roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
         conditionValue : req.body.conditionValue,
         updateKey : req.body.updateKey,
@@ -257,7 +258,7 @@ app.post('/update', async (req, res) => {
 
 app.post('/delete', async (req, res) => {
     let doc = {
-        roomCode : req.body.roomCode,        
+        roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
         conditionValue : req.body.conditionValue,        
     }    
@@ -276,7 +277,7 @@ app.post('/delete', async (req, res) => {
  */
 app.post('/collection/delete', async (req, res) => {
     let doc = {
-        roomCode : req.body.roomCode
+        roomId : req.body.roomId
     }    
 
     try {
