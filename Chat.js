@@ -179,16 +179,16 @@ async function deleteCollection(doc) {
 }
 
 
-app.get('/', (req, res) => {
-    res.send("hello!");    
-    logger.info("User In!");
-})
+// app.get('/', (req, res) => {
+//     res.send("hello!");    
+//     logger.info("User In!");
+// })
 
 app.post('/health', (req, res) => {
     return res.status(200).send(exceptionDto.errorCode.CODE_0);
 }) 
 
-app.post('/insert', async (req, res ) => {
+app.post('/chatHistory/insert', async (req, res ) => {
     console.log('insert start : ', req.body);
     try {
         await chatValidation.chatMessage(req, res);
@@ -200,28 +200,28 @@ app.post('/insert', async (req, res ) => {
             type : req.body.type
         }
             
-        await insertMongo(doc, res);   
-        res.json(req.body);
+        await insertMongo(doc);   
+        res.json(doc);
     } catch(e) {
         console.error(e);
         res.json({rtnMessage: "success", rtnCode: "000000", rtnDtlMessage: "에러"});
     }                
 })
 
-app.post('/findAll', async (req, res) => {
+app.post('/chatHistory/findAll', async (req, res) => {
     let doc = {
         roomId : req.body.roomId,        
     }        
     try {        
         let roomList  = await findAllMongo(doc);           
-        return res.status(200).send(roomList);
+        res.status(200).send(roomList);
      } catch (e) {
         logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_2)
+        res.status(400).send(exceptionDto.errorCode.CODE_2)
      }    
 })
 
-app.post('/findCondition', async (req, res) => {
+app.post('/chatHistory/findCondition', async (req, res) => {
     let doc = {
         roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
@@ -231,14 +231,14 @@ app.post('/findCondition', async (req, res) => {
     try {
         let roomList = await findConditionMongo(doc); 
         console.log("roomList =>" , roomList);           
-        return res.status(200).send(roomList);
+        res.status(200).send(roomList);
      } catch (e) {        
         logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_2)
+        res.status(400).send(exceptionDto.errorCode.CODE_2)
      }       
 })
 
-app.post('/update', async (req, res) => {
+app.post('/chatHistory/update', async (req, res) => {
     let doc = {
         roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
@@ -249,14 +249,14 @@ app.post('/update', async (req, res) => {
 
     try {
         await updateMongo(doc);    
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
         logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_3, e)
+        res.status(400).send(exceptionDto.errorCode.CODE_3)
      }   
 })
 
-app.post('/delete', async (req, res) => {
+app.post('/chatHistory/delete', async (req, res) => {
     let doc = {
         roomId : req.body.roomId,        
         conditionKey : req.body.conditionKey,
@@ -265,10 +265,10 @@ app.post('/delete', async (req, res) => {
 
     try {
         await deleteMongo(doc);             
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        res.status(200).send(exceptionDto.errorCode.CODE_0);
      } catch (e) {
         logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_4)
+        res.status(400).send(exceptionDto.errorCode.CODE_4)
      }           
 })
 
@@ -282,10 +282,10 @@ app.post('/collection/delete', async (req, res) => {
 
     try {
        await deleteCollection(doc, res)        
-        return res.status(200).send(exceptionDto.errorCode.CODE_0);
+        res.status(200).send(exceptionDto.errorCode.CODE_0);
     } catch (e) {
         logger.error(e);
-        return res.status(400).send(exceptionDto.errorCode.CODE_4);        
+        res.status(400).send(exceptionDto.errorCode.CODE_4);        
     }            
 })
 
