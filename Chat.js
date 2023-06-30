@@ -32,7 +32,7 @@ const exceptionDto = require('./excepction/exceptionDto');
  * 몽고 DB 관련 설정 
  */
 const { MongoClient } = require('mongodb');
-const url = 'mongodb://localhost:27017';
+const url = process.env.mongoServer ;
 const client = new MongoClient(url);
 const dbName = 'test';
 
@@ -44,18 +44,14 @@ let mongoDB;
 async function withTransaction(session, callback) {
     try {
         await session.startTransaction();
-        console.log("tarnsaction start !!");
-        
+                
         await callback(session);
 
         await session.commitTransaction();        
-        console.log('Transaction committed successfully!');
-
+        
     } catch (error) {
-        await session.abortTransaction();
-        console.error('Transaction aborted:', error);
-    } finally {        
-        console.log("tarnsaction end !!");
+        await session.abortTransaction();        
+    } finally {                
         session.endSession();
     }
 }
@@ -77,8 +73,7 @@ async function insertMongo(doc) {
 
     await withTransaction(session, async (session) => { 
 
-        let collectName = stringConverter(doc.roomId);
-
+        let collectName = stringConverter(doc.roomId);        
         if(doc.type == 'whiteBoard') {
             collectName = collectName + '_WhiteBoard';
         } else if(doc.type == 'TALK') {
@@ -86,7 +81,7 @@ async function insertMongo(doc) {
         }                
 
         mongoDB.collection(collectName).insertOne(doc, function(err, res) {                           
-        });   
+        });           
     })
     
 }
@@ -163,8 +158,7 @@ async function deleteMongo(doc) {
     let deleteQuery = {};
     deleteQuery[conditionKey] = conditionValue;    
     
-    const session = client.startSession();    
-    console.log("deleteQuery : ", deleteQuery);
+    const session = client.startSession();        
     await withTransaction(session, async (session) => { 
         mongoDB.collection(collectName).deleteMany(deleteQuery);
     })        
@@ -188,8 +182,7 @@ app.post('/health', (req, res) => {
     return res.status(200).send(exceptionDto.errorCode.CODE_0);
 }) 
 
-app.post('/chatHistory/insert', async (req, res ) => {
-    console.log('insert start : ', req.body);
+app.post('/chatHistory/insert', async (req, res ) => {    
     try {
         await chatValidation.chatMessage(req, res);
         let doc = {
